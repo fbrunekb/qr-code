@@ -3,7 +3,7 @@ export type Shape = 'square' | 'rounded' | 'round' | 'diamond' | 'heart' | 'blur
 export type Frame = 'none' | 'bottom' | 'top' | 'pill' | 'script';
 export type CustomForm = {id:string; name:string; path:string; inverted:boolean};
 export type Settings = {shape:Shape; foreground:string; background:string; customForms:CustomForm[]; customId:string|null; logo:string; frame:Frame; frameWidth:number; label:string; labelTouched:boolean};
-export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',frame:'none',frameWidth:8,label:'',labelTouched:false};
+export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',frame:'none',frameWidth:16,label:'',labelTouched:false};
 export function activeCustomForm(s:Settings):CustomForm|undefined {
   return s.shape==='custom'?s.customForms.find(form=>form.id===s.customId):undefined;
 }
@@ -33,6 +33,23 @@ export function contrast(a:string,b:string) {
 }
 const esc=(s:string)=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]!));
 export function frameLabel(input:string,s:Settings):string {return s.labelTouched?s.label:input.trim();}
+
+export function truncateFrameLabel(text:string,maxWidth:number,measure:(value:string)=>number):string {
+  if(measure(text)<=maxWidth)return text;
+  const chars=Array.from(text),suffix='...';
+  if(measure(suffix)>maxWidth)return '';
+  let low=0,high=chars.length;
+  while(low<high){const mid=Math.ceil((low+high)/2);if(measure(chars.slice(0,mid).join('')+suffix)<=maxWidth)low=mid;else high=mid-1;}
+  return chars.slice(0,low).join('')+suffix;
+}
+let labelContext:CanvasRenderingContext2D|null|undefined;
+function measureFrameText(text:string,fontSize:number,script:boolean):number {
+  if(typeof document!=='undefined'){
+    labelContext??=document.createElement('canvas').getContext('2d');
+    if(labelContext){labelContext.font=`${script?'italic 400':'700'} ${fontSize}px ${script?'Georgia':'Arial'}`;return labelContext.measureText(text).width;}
+  }
+  return Array.from(text).length*fontSize*.66;
+}
 
 /** Dark runs become a reusable vector shape; no filling or forced center pixels. */
 export function monochromePath(pixels:Uint8ClampedArray,width:number,height:number):string {
@@ -93,7 +110,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const custom=activeCustomForm(s);
   const qr=QRCode.create(url,{errorCorrectionLevel:'H'});
   const n=qr.modules.size, m=12, size=(n+8)*m+20;
-  const framed=s.frame!=='none', stroke=Math.max(2,Math.min(24,s.frameWidth)), pad=framed?stroke+12:0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
+  const framed=s.frame!=='none', stroke=Math.max(2,Math.min(32,s.frameWidth)), pad=framed?stroke+12:0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
   const width=size+pad*2,height=size+pad*2+top+bottom;
   const cells:string[]=[];
   const protectedCells:string[]=[];
@@ -120,17 +137,18 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     if(s.shape==='custom'&&custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
     else cells.push(moduleSvg(s.shape,px,py));
   }
-  const label=esc(frameLabel(defaultLabel,s));
+  const fullLabel=frameLabel(defaultLabel,s);
   let frame='';
   if(framed){
     const inset=stroke/2+4, radius=s.frame==='pill'?28:14;
     frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${size+2*pad-2*inset}" rx="${radius}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
     const labelY=s.frame==='top'?8:height-56, textY=labelY+30;
     const script=s.frame==='script',fontSize=script?28:24;
-    // SVG textLength keeps long URLs within their label in preview and exports alike.
-    const textWidth=width-8-32, fit=label.length*fontSize*.62>textWidth?` textLength="${textWidth}" lengthAdjust="spacingAndGlyphs"`:'';
+    // Truncate the display only; the input and QR destination retain the complete URL.
+    const textWidth=width-8-32;
+    const label=esc(truncateFrameLabel(fullLabel,textWidth,text=>measureFrameText(text,fontSize,script)));
     if(!script)frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${s.frame==='pill'?24:10}" fill="${s.foreground}"/>`;
-    frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}"${fit}>${label}</text>`;
+    frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
   const logoSize=Math.floor(n*.18)*m,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';

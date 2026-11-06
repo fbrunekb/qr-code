@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -59,7 +59,7 @@ test('custom vector points with an uploaded-like centered shape are scannable',a
  const url='https://example.com/custom';
  assert.equal(await decode(url,{shape:'custom',customForms:[{id:'test',name:'test.svg',path:'M0 12H12V0H36V12H48V36H36V48H12V36H0Z',inverted:false}],customId:'test'}),url);
 });
-for(const frameWidth of [2,8,24])test(`frame width ${frameWidth} preserves quiet zone and is scannable`,async()=>{
+for(const frameWidth of [2,16,32])test(`frame width ${frameWidth} preserves quiet zone and is scannable`,async()=>{
  const url='https://example.com/';assert.equal(await decode(url,{frame:'pill',frameWidth}),url);
  const svg=renderSvg(url,{...defaults,frame:'pill',frameWidth});
  assert.ok(svg.includes(`stroke-width="${frameWidth}"`));
@@ -67,7 +67,8 @@ for(const frameWidth of [2,8,24])test(`frame width ${frameWidth} preserves quiet
 });
 test('long frame labels fit and custom labels are XML-escaped',()=>{
  const svg=renderSvg('https://example.com/',{...defaults,frame:'bottom'},'https://example.com/'+ 'long-url/'.repeat(20));
- assert.ok(svg.includes('lengthAdjust="spacingAndGlyphs"'));
+ assert.ok(/<text[^>]*>[^<]*\.\.\.<\/text>/.test(svg));
+ assert.ok(!svg.includes('textLength='));
  assert.ok(renderSvg('https://example.com/',{...defaults,frame:'bottom',labelTouched:true,label:'<Hallo & Welt>'}).includes('&lt;Hallo &amp; Welt&gt;'));
 });
 
@@ -79,7 +80,7 @@ test('export background pixels exactly match the selected color',async()=>{
 import './clipboard.test';
 
 test('frame label spans the complete outside width of the frame',()=>{
- for(const frame of ['bottom','top','pill'] as const)for(const frameWidth of [2,8,24]){
+ for(const frame of ['bottom','top','pill'] as const)for(const frameWidth of [2,16,32]){
   const svg=renderSvg('https://example.com/',{...defaults,frame,frameWidth});
   const width=Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
   assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-56}" width="${width-8}"`));
@@ -123,4 +124,17 @@ test('QR exports use the selected custom form and its own inversion',async()=>{
   const active=activeCustomForm(selected)!;
   assert.ok(renderSvg(url,selected).includes(`d="${customPath(active.path,active.inverted)}"`));
  }
+});
+
+test('frame labels truncate without changing the original input or shortening short labels',()=>{
+ assert.equal(defaults.frameWidth,16);
+ const measure=(text:string)=>Array.from(text).length*10;
+ assert.equal(truncateFrameLabel('example.com',200,measure),'example.com');
+ assert.equal(truncateFrameLabel('https://example.com/long/path',150,measure),'https://exam...');
+ assert.equal(truncateFrameLabel('',150,measure),'');
+ const settings={...defaults,frame:'bottom' as const,labelTouched:true,label:'Eigener langer Text '.repeat(20)};
+ const original=settings.label;
+ const svg=renderSvg('https://example.com/',settings);
+ assert.equal(settings.label,original);
+ assert.ok(/<text[^>]*>[^<]*\.\.\.<\/text>/.test(svg));
 });
