@@ -82,7 +82,7 @@ test('frame label spans the complete outside width of the frame',()=>{
  for(const frame of ['bottom','pill-top','pill'] as const)for(const frameWidth of [2,16,32]){
   const svg=renderSvg('https://example.com/',{...defaults,frame,frameWidth});
   const width=Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
-  assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='pill-top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-56}" width="${width-8}"`));
+  assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='pill-top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-(frame==='pill'?64:56)}" width="${width-8}"`));
  }
 });
 test('QR quiet zone includes an additional ten pixels on every side',()=>{

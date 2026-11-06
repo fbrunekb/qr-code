@@ -131,7 +131,8 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const style=frameOptions.find(frame=>frame.id===s.frame)??frameOptions[0];
   const framed=style.kind!=='none',outlined=['round','block','bubble'].includes(style.kind);
   const stroke=Math.max(2,Math.min(32,s.frameWidth)),pad=outlined?stroke+12:0;
-  const band=framed?(style.kind==='bubble'?88:64):0,top=style.position==='top'?band:0;
+  const roundedLabel=['round','bubble'].includes(style.kind),labelHeight=roundedLabel?56:48;
+  const band=framed?(style.kind==='bubble'?104:roundedLabel?80:64):0,top=style.position==='top'?band:0;
   const width=size+pad*2,codeHeight=width,height=codeHeight+band;
   const cells:string[]=[];
   const protectedCells:string[]=[];
@@ -167,19 +168,19 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     }else if(outlined){
       frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${codeHeight-2*inset}" rx="${['round','bubble'].includes(style.kind)?28:14}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
     }
-    const labelY=style.position==='top'?8:codeHeight+(style.kind==='bubble'?32:8);
+    const labelY=style.position==='top'?8:codeHeight+(style.kind==='bubble'?40:roundedLabel?16:8);
     const script=style.kind==='script',fontSize=script?28:24;
     const textWidth=width-40;
     const label=esc(truncateFrameLabel(fullLabel,textWidth,text=>measureFrameText(text,fontSize,script)));
     if(style.kind!=='block'&&!script){
-      frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${['round','bubble'].includes(style.kind)?24:10}" fill="${s.foreground}"/>`;
+      frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="${labelHeight}" rx="${roundedLabel?labelHeight/2:10}" fill="${s.foreground}"/>`;
     }
     if(style.kind==='bubble'){
-      const half=width*.11,base=style.position==='top'?labelY+47:labelY+1,tip=style.position==='top'?base+24:base-24;
+      const half=width*.11,base=style.position==='top'?labelY+labelHeight-1:labelY+1,tip=style.position==='top'?base+24:base-24;
       frame+=`<path data-bubble-tail="${style.position}" d="M${width/2-half} ${base}L${width/2} ${tip}L${width/2+half} ${base}Z" fill="${s.foreground}"/>`;
     }
-    const textY=style.kind==='block'?(style.position==='top'?(band+stroke+8)/2:codeHeight+(band-stroke-8)/2)+fontSize*.35:labelY+30;
-    frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
+    const textY=style.kind==='block'?(style.position==='top'?(band+stroke+8)/2:codeHeight+(band-stroke-8)/2)+fontSize*.35:roundedLabel?labelY+labelHeight/2:labelY+30;
+    frame+=`<text x="${width/2}" y="${textY}"${roundedLabel?' dominant-baseline="central"':''} fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
   const logoSize=n*m*Math.max(10,Math.min(50,s.logoScale??18))/100,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
@@ -191,7 +192,8 @@ export function framePreview(frame:Frame):string {
   if(cached)return cached;
   const style=frameOptions.find(option=>option.id===frame)??frameOptions[0];
   const top=style.position==='top',kind=style.kind,color='#123d3c';
-  const codeY=top?21:5,labelY=top?3:55;
+  const roundedLabel=kind==='round'||kind==='bubble';
+  const codeY=top?(roundedLabel?24:21):5,labelY=top?3:roundedLabel?58:55;
   let decoration='';
   if(kind==='block'){
     decoration=`<rect x="9" y="${top?3:5}" width="46" height="62" rx="4" fill="${color}"/><rect x="12" y="${codeY+3}" width="40" height="40" rx="2" fill="white"/>`;
@@ -207,8 +209,8 @@ export function framePreview(frame:Frame):string {
   }
   const gridY=kind==='none'?22:codeY+11;
   const grid=`<g data-example-grid="true" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round"><rect x="20" y="${gridY}" width="24" height="24" rx="2"/><path d="M28 ${gridY}v24M36 ${gridY}v24M20 ${gridY+8}h24M20 ${gridY+16}h24"/></g>`;
-  const label=kind==='none'?'':`<text x="32" y="${labelY+7.8}" text-anchor="middle" font-family="${kind==='script'?'Georgia,serif':'Arial,sans-serif'}" font-style="${kind==='script'?'italic':'normal'}" font-size="6" font-weight="${kind==='script'?400:700}" fill="${kind==='script'?color:'white'}">SCAN ME</text>`;
-  const preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72">${decoration}${grid}${label}</svg>`);
+  const label=kind==='none'?'':`<text x="32" y="${roundedLabel?labelY+5.5:labelY+7.8}"${roundedLabel?' dominant-baseline="central"':''} text-anchor="middle" font-family="${kind==='script'?'Georgia,serif':'Arial,sans-serif'}" font-style="${kind==='script'?'italic':'normal'}" font-size="6" font-weight="${kind==='script'?400:700}" fill="${kind==='script'?color:'white'}">SCAN ME</text>`;
+  const preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 76">${decoration}${grid}${label}</svg>`);
   framePreviewCache.set(frame,preview);
   return preview;
 }
