@@ -5,5 +5,5 @@
 - Hauptbranch für diesen Auftrag: master. Git-Identität: Fabian Brune <fabian.brune@klosebrothers.de>.
 - Befehle: npm ci; npm run dev; npm test; npm run build.
 - Keine Server-API, keine Übermittlung von URLs/Bildern, keine externen Schriftarten oder Trackingdienste.
-- QR-Funktionsmuster und vier Module Ruhezone erhalten. Scanbarkeit hat Vorrang vor Gestaltung.
+- Vier Module Ruhezone erhalten und Scanbarkeit prüfen. Auf ausdrücklichen Nutzerwunsch auch Timing-/Formatmodule in der gewählten Form darstellen. Erkennungskonturen bleiben zusammenhängend; runde Formen erhalten abgerundete Erkennungsecken. Funktionsmuster weiterhin vor Logo-Überlagerung schützen.
 - Der Nutzer wünscht autonome, schlanke Umsetzung im vorhandenen Repository ohne Subagenten oder zusätzliche Klone.

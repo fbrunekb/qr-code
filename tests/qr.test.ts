@@ -25,10 +25,12 @@ test('custom modules and logo preserve encoded URL',async()=>{
  const logo='data:image/png;base64,'+(await sharp({create:{width:48,height:48,channels:4,background:'#269954'}}).png().toBuffer()).toString('base64');
  const url='https://example.com/custom-logo';assert.equal(await decode(url,{shape:'custom',customForms:[{id:'test',name:'test.svg',path:custom,inverted:false}],customId:'test',logo,frame:'bottom'}),url);
 });
-test('all reserved modules remain square for custom and round shapes',()=>{
- const url='https://example.com/'+ 'long-path/'.repeat(25),qr=QRCode.create(url,{errorCorrectionLevel:'H'}),svg=renderSvg(url,{...defaults,shape:'round'});
- const reserved=(qr.modules as unknown as {reservedBit:Uint8Array}).reservedBit;
- for(let y=0;y<qr.modules.size;y++)for(let x=0;x<qr.modules.size;x++)if(reserved[y*qr.modules.size+x]&&qr.modules.get(y,x))assert.ok(svg.includes(`<rect shape-rendering="crispEdges" x="${(x+4)*12+10}" y="${(y+4)*12+10}" width="12" height="12"/>`));
+test('round forms style timing and format modules and round the recognition corners',()=>{
+ const svg=renderSvg('https://example.com/',{...defaults,shape:'round'});
+ assert.equal((svg.match(/data-eye="7"/g)||[]).length,3);
+ assert.ok(svg.includes('rx="18"'));
+ assert.ok(!svg.includes('shape-rendering="crispEdges"'));
+ assert.ok(svg.includes('<circle'));
 });
 
 test('frame label follows the entered URL until manually edited, including clearing it',()=>{
@@ -87,7 +89,7 @@ test('QR quiet zone includes an additional ten pixels on every side',()=>{
  const url='https://example.com/',qr=QRCode.create(url,{errorCorrectionLevel:'H'});
  const svg=renderSvg(url,defaults);
  assert.ok(svg.includes(`width="${(qr.modules.size+8)*12+20}"`));
- assert.ok(svg.includes('<rect shape-rendering="crispEdges" x="58" y="58" width="12" height="12"/>'));
+ assert.ok(svg.includes('data-eye="7" shape-rendering="crispEdges"><rect x="58" y="58"'));
 });
 
 test('multiple custom forms preserve independent inversion across selection and new uploads',()=>{

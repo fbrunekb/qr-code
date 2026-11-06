@@ -22,3 +22,5 @@ footer{margin-top:32px;padding:30px 28px 20px;background:linear-gradient(115deg,
 /* Inline color controls stay in the left column; the QR preview remains unobscured. */
 .settings{min-width:0}.settings>.color-dialog{position:static;width:100%;max-height:none;overflow:visible;margin:0 0 14px;box-shadow:0 6px 22px #12382c12}.settings>.color-dialog:focus{outline:none}footer>div{flex:1 1 360px}footer p{max-width:620px}
 @media(max-width:640px){footer>div{flex-basis:100%}}
+footer .credit{font-size:14px;font-weight:700;letter-spacing:.1px;color:#315e44;padding-top:19px;text-decoration:underline;text-decoration-color:#bad0c1;text-underline-offset:4px}footer .credit:hover{color:#1b4b2e;text-decoration-color:currentColor}
+@media(max-width:640px){footer .credit{font-size:13px;line-height:1.7}}

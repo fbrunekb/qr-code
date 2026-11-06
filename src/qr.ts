@@ -98,13 +98,27 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const cells:string[]=[];
   const protectedCells:string[]=[];
   const reserved=(qr.modules as unknown as {reservedBit:Uint8Array}).reservedBit;
+  const roundedEyes=['rounded','round','blur'].includes(s.shape);
+  const eyes:{x:number;y:number;size:number}[]=[{x:0,y:0,size:7},{x:n-7,y:0,size:7},{x:0,y:n-7,size:7}];
+  for(let y=2;y<n-2;y++)for(let x=2;x<n-2;x++){
+    let alignment=true;
+    for(let dy=-2;dy<=2&&alignment;dy++)for(let dx=-2;dx<=2;dx++){
+      const dark=Math.abs(dx)===2||Math.abs(dy)===2||(dx===0&&dy===0);
+      if(!reserved[(y+dy)*n+x+dx]||!!qr.modules.get(y+dy,x+dx)!==dark){alignment=false;break;}
+    }
+    if(alignment)eyes.push({x:x-2,y:y-2,size:5});
+  }
+  for(const eye of eyes){
+    const x=(eye.x+4)*m+pad+10,y=(eye.y+4)*m+pad+top+10,length=eye.size*m;
+    cells.push(`<g data-eye="${eye.size}"${roundedEyes?'':' shape-rendering="crispEdges"'}><rect x="${x}" y="${y}" width="${length}" height="${length}" rx="${roundedEyes?(eye.size===7?18:12):0}"/><rect x="${x+m}" y="${y+m}" width="${length-2*m}" height="${length-2*m}" rx="${roundedEyes?(eye.size===7?10:6):0}" fill="${s.background}"/><rect x="${x+2*m}" y="${y+2*m}" width="${length-4*m}" height="${length-4*m}" rx="${roundedEyes?(eye.size===7?7:3.5):0}"/></g>`);
+  }
   for(let y=0;y<n;y++)for(let x=0;x<n;x++) {
     if(reserved[y*n+x])protectedCells.push(`<rect x="${(x+4)*m+pad+10}" y="${(y+4)*m+pad+top+10}" width="12" height="12" fill="black"/>`);
     if(!qr.modules.get(y,x))continue;
     const px=(x+4)*m+pad+10,py=(y+4)*m+pad+top+10;
-    const fixed=!!reserved[y*n+x];
-    if(!fixed&&s.shape==='custom'&&custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
-    else cells.push(moduleSvg(fixed?'square':s.shape,px,py));
+    if(eyes.some(eye=>x>=eye.x&&x<eye.x+eye.size&&y>=eye.y&&y<eye.y+eye.size))continue;
+    if(s.shape==='custom'&&custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
+    else cells.push(moduleSvg(s.shape,px,py));
   }
   const label=esc(frameLabel(defaultLabel,s));
   let frame='';
@@ -120,7 +134,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   }
   const logoSize=Math.floor(n*.18)*m,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
 export async function svgToCanvas(svg:string,size=1200):Promise<HTMLCanvasElement> {
   const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);
