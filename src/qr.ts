@@ -1,8 +1,23 @@
 import QRCode from 'qrcode';
 export type Shape = 'square' | 'rounded' | 'round' | 'diamond' | 'heart' | 'blur' | 'custom';
 export type Frame = 'none' | 'bottom' | 'top' | 'pill' | 'script';
-export type Settings = {shape:Shape; foreground:string; background:string; custom:string; logo:string; frame:Frame; frameWidth:number; label:string; labelTouched:boolean; customInverted:boolean};
-export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',custom:'',logo:'',frame:'none',frameWidth:8,label:'',labelTouched:false,customInverted:false};
+export type CustomForm = {id:string; name:string; path:string; inverted:boolean};
+export type Settings = {shape:Shape; foreground:string; background:string; customForms:CustomForm[]; customId:string|null; logo:string; frame:Frame; frameWidth:number; label:string; labelTouched:boolean};
+export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',frame:'none',frameWidth:8,label:'',labelTouched:false};
+export function activeCustomForm(s:Settings):CustomForm|undefined {
+  return s.shape==='custom'?s.customForms.find(form=>form.id===s.customId):undefined;
+}
+export function addCustomForms(s:Settings,forms:CustomForm[]):Settings {
+  if(!forms.length)return s;
+  return {...s,customForms:[...s.customForms,...forms],customId:forms[forms.length-1].id,shape:'custom'};
+}
+export function selectCustomForm(s:Settings,id:string):Settings {
+  return s.customForms.some(form=>form.id===id)?{...s,shape:'custom',customId:id}:s;
+}
+export function invertCustomForm(s:Settings,inverted:boolean):Settings {
+  if(!activeCustomForm(s))return s;
+  return {...s,customForms:s.customForms.map(form=>form.id===s.customId?{...form,inverted}:form)};
+}
 export function normalizeUrl(input:string):string | null {
   const value=input.trim();
   if (!value || /\s/.test(value)) return null;
@@ -75,6 +90,7 @@ export function shapePreview(shape:Shape):string {
   return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><defs>${blurFilter}</defs><g fill="#123d3c">${cells}</g></svg>`);
 }
 export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
+  const custom=activeCustomForm(s);
   const qr=QRCode.create(url,{errorCorrectionLevel:'H'});
   const n=qr.modules.size, m=12, size=(n+8)*m+20;
   const framed=s.frame!=='none', stroke=Math.max(2,Math.min(24,s.frameWidth)), pad=framed?stroke+12:0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
@@ -87,7 +103,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     if(!qr.modules.get(y,x))continue;
     const px=(x+4)*m+pad+10,py=(y+4)*m+pad+top+10;
     const fixed=!!reserved[y*n+x];
-    if(!fixed&&s.shape==='custom'&&s.custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
+    if(!fixed&&s.shape==='custom'&&custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
     else cells.push(moduleSvg(fixed?'square':s.shape,px,py));
   }
   const label=esc(frameLabel(defaultLabel,s));
@@ -104,7 +120,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   }
   const logoSize=Math.floor(n*.18)*m,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${s.custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(s.custom,s.customInverted)}" fill-rule="evenodd"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
 export async function svgToCanvas(svg:string,size=1200):Promise<HTMLCanvasElement> {
   const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);

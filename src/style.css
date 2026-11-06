@@ -17,3 +17,4 @@ footer{margin-top:32px;padding:30px 28px 20px;background:linear-gradient(115deg,
 @media(max-width:640px){.shape-tile strong{font-size:15px}.mobile-preview-notes{display:block;margin:-8px 0 22px}.mobile-preview-notes .preview-notes{max-width:none;margin:0}.preview-notes .function-note{font-size:10px}.custom-info p{max-width:calc(100vw - 78px)}.color-dialog .react-colorful{height:225px}}
 /* Keep the info bubble inside the accordion instead of clipping it below it. */
 .custom-info p{top:auto;bottom:calc(100% + 8px);margin:0}
+.custom-form-tile strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px;font-size:13px}

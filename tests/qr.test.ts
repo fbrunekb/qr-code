@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -23,7 +23,7 @@ for(const {id:shape} of builtinShapes)for(const frame of ['none','bottom','top',
 test('custom modules and logo preserve encoded URL',async()=>{
  const custom='M0 0h48v48H0Z';
  const logo='data:image/png;base64,'+(await sharp({create:{width:48,height:48,channels:4,background:'#269954'}}).png().toBuffer()).toString('base64');
- const url='https://example.com/custom-logo';assert.equal(await decode(url,{shape:'custom',custom,logo,frame:'bottom'}),url);
+ const url='https://example.com/custom-logo';assert.equal(await decode(url,{shape:'custom',customForms:[{id:'test',name:'test.svg',path:custom,inverted:false}],customId:'test',logo,frame:'bottom'}),url);
 });
 test('all reserved modules remain square for custom and round shapes',()=>{
  const url='https://example.com/'+ 'long-path/'.repeat(25),qr=QRCode.create(url,{errorCorrectionLevel:'H'}),svg=renderSvg(url,{...defaults,shape:'round'});
@@ -55,7 +55,7 @@ test('inversion swaps foreground and background without forcing a center',async(
 });
 test('custom vector points with an uploaded-like centered shape are scannable',async()=>{
  const url='https://example.com/custom';
- assert.equal(await decode(url,{shape:'custom',custom:'M0 12H12V0H36V12H48V36H36V48H12V36H0Z'}),url);
+ assert.equal(await decode(url,{shape:'custom',customForms:[{id:'test',name:'test.svg',path:'M0 12H12V0H36V12H48V36H36V48H12V36H0Z',inverted:false}],customId:'test'}),url);
 });
 for(const frameWidth of [2,8,24])test(`frame width ${frameWidth} preserves quiet zone and is scannable`,async()=>{
  const url='https://example.com/';assert.equal(await decode(url,{frame:'pill',frameWidth}),url);
@@ -88,4 +88,37 @@ test('QR quiet zone includes an additional ten pixels on every side',()=>{
  const svg=renderSvg(url,defaults);
  assert.ok(svg.includes(`width="${(qr.modules.size+8)*12+20}"`));
  assert.ok(svg.includes('<rect shape-rendering="crispEdges" x="58" y="58" width="12" height="12"/>'));
+});
+
+test('multiple custom forms preserve independent inversion across selection and new uploads',()=>{
+ const first={id:'a',name:'first.svg',path:'M0 0h48v48H0Z',inverted:false};
+ const second={id:'b',name:'second.png',path:'M0 0Z',inverted:false};
+ let settings=addCustomForms(defaults,[first,second]);
+ assert.equal(settings.customForms.length,2);
+ assert.equal(activeCustomForm(settings)?.id,'b');
+ settings=invertCustomForm(settings,true);
+ assert.equal(activeCustomForm(settings)?.inverted,true);
+ settings=selectCustomForm(settings,'a');
+ assert.equal(activeCustomForm(settings)?.inverted,false);
+ settings=selectCustomForm(settings,'b');
+ assert.equal(activeCustomForm(settings)?.inverted,true);
+ settings={...settings,shape:'round'};
+ assert.equal(activeCustomForm(settings),undefined);
+ settings=selectCustomForm(settings,'b');
+ assert.equal(activeCustomForm(settings)?.inverted,true);
+ settings=addCustomForms(settings,[{...first,id:'c'}]);
+ assert.equal(settings.customForms.length,3);
+ assert.equal(settings.customForms.find(form=>form.id==='b')?.inverted,true);
+ assert.equal(activeCustomForm(settings)?.id,'c');
+ assert.equal(second.inverted,false);
+});
+test('QR exports use the selected custom form and its own inversion',async()=>{
+ const forms=[{id:'a',name:'dark.svg',path:'M0 0h48v48H0Z',inverted:false},{id:'b',name:'light.svg',path:'M0 0Z',inverted:true}];
+ const settings=addCustomForms(defaults,forms),url='https://example.com/custom-selection';
+ for(const id of ['a','b']){
+  const selected=selectCustomForm(settings,id);
+  assert.equal(await decode(url,selected),url);
+  const active=activeCustomForm(selected)!;
+  assert.ok(renderSvg(url,selected).includes(`d="${customPath(active.path,active.inverted)}"`));
+ }
 });
