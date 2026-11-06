@@ -187,11 +187,29 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
 }
 const framePreviewCache=new Map<Frame,string>();
 export function framePreview(frame:Frame):string {
-  let preview=framePreviewCache.get(frame);
-  if(!preview){
-    preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(renderSvg('1',{...defaults,foreground:'#123d3c',frame,label:'SCAN ME',labelTouched:true}));
-    framePreviewCache.set(frame,preview);
+  const cached=framePreviewCache.get(frame);
+  if(cached)return cached;
+  const style=frameOptions.find(option=>option.id===frame)??frameOptions[0];
+  const top=style.position==='top',kind=style.kind,color='#123d3c';
+  const codeY=top?21:5,labelY=top?3:55;
+  let decoration='';
+  if(kind==='block'){
+    decoration=`<rect x="9" y="${top?3:5}" width="46" height="62" rx="4" fill="${color}"/><rect x="12" y="${codeY+3}" width="40" height="40" rx="2" fill="white"/>`;
+  }else if(kind==='round'||kind==='bubble'){
+    decoration=`<rect x="10.5" y="${codeY+1.5}" width="43" height="43" rx="6" fill="none" stroke="${color}" stroke-width="3"/>`;
   }
+  if(kind!=='none'&&kind!=='script'&&kind!=='block'){
+    decoration+=`<rect x="9" y="${labelY}" width="46" height="11" rx="${kind==='label'?2:5.5}" fill="${color}"/>`;
+  }
+  if(kind==='bubble'){
+    const base=top?labelY+10:labelY+1,tip=top?base+5:base-5;
+    decoration+=`<path d="M27 ${base}L32 ${tip}L37 ${base}Z" fill="${color}"/>`;
+  }
+  const gridY=kind==='none'?22:codeY+11;
+  const grid=`<g data-example-grid="true" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round"><rect x="20" y="${gridY}" width="24" height="24" rx="2"/><path d="M28 ${gridY}v24M36 ${gridY}v24M20 ${gridY+8}h24M20 ${gridY+16}h24"/></g>`;
+  const label=kind==='none'?'':`<text x="32" y="${labelY+7.8}" text-anchor="middle" font-family="${kind==='script'?'Georgia,serif':'Arial,sans-serif'}" font-style="${kind==='script'?'italic':'normal'}" font-size="6" font-weight="${kind==='script'?400:700}" fill="${kind==='script'?color:'white'}">SCAN ME</text>`;
+  const preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72">${decoration}${grid}${label}</svg>`);
+  framePreviewCache.set(frame,preview);
   return preview;
 }
 export async function svgToCanvas(svg:string,size=1200):Promise<HTMLCanvasElement> {

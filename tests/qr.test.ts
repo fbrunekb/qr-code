@@ -200,8 +200,11 @@ test('speech bubbles use the same outline and label radius as round frames',()=>
   assert.deepEqual(radii(speech),radii(rounded));
  }
 });
-test('frame examples use a simpler QR matrix than the full URL preview',()=>{
- const example=decodeURIComponent(framePreview('none').split(',')[1]);
- const full=renderSvg('https://qr.studio',defaults);
- assert.ok((example.match(/shape-rendering="crispEdges"/g)??[]).length<(full.match(/shape-rendering="crispEdges"/g)??[]).length);
+test('all nine frame examples show a simple grid and distinct frame designs',()=>{
+ const examples=frameOptions.map(({id})=>decodeURIComponent(framePreview(id).split(',')[1]));
+ assert.equal(new Set(examples).size,9);
+ for(const svg of examples){
+  assert.ok(svg.includes('data-example-grid="true"'));
+  assert.ok(!svg.includes('data-eye='));
+ }
 });
