@@ -167,7 +167,6 @@ export async function svgToCanvas(svg:string,size=1200):Promise<HTMLCanvasElemen
 }
 export async function canvasBlob(canvas:HTMLCanvasElement):Promise<Blob> {return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Bild konnte nicht erstellt werden.')),'image/png'));}
 export async function readImage(file:File):Promise<string>{
-  if(file.size>5*1024*1024)throw new Error('Bitte wähle ein Logo mit höchstens 5 MB.');
   if(!['image/png','image/jpeg','image/webp','image/svg+xml'].includes(file.type))throw new Error('Bitte PNG, JPG, WebP oder SVG verwenden.');
   const url=URL.createObjectURL(file);
   try{const img=new Image();img.src=url;await img.decode();const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;const ctx=canvas.getContext('2d')!;

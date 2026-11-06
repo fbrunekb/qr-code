@@ -153,3 +153,4 @@ test('deleting custom forms preserves other entries, selection and inversion',()
  assert.equal(removeCustomForm({...start,shape:'heart'},'b').shape,'heart');
  assert.equal(start.customForms.length,3);
 });
+import './clipboard.test';
