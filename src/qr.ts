@@ -124,6 +124,15 @@ export function shapePreview(shape:Shape):string {
   let cells='';for(let y=0;y<3;y++)for(let x=0;x<3;x++)cells+=moduleSvg(shape,x*17+3,y*17+3);
   return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><defs>${blurFilter}</defs><g fill="#123d3c">${cells}</g></svg>`);
 }
+function logoGrid(n:number,scale:number) {
+  // Odd QR matrices need an odd logo width to keep both centered edges on the grid.
+  const min=2*Math.ceil((n*.1-1)/2)+1,max=2*Math.floor((n*.5-1)/2)+1;
+  const modules=Math.max(min,Math.min(max,2*Math.round((n*Math.max(10,Math.min(50,scale))/100-1)/2)+1));
+  return {min,max,modules,total:n};
+}
+export function logoSizing(url:string,scale:number) {
+  return logoGrid(QRCode.create(url,{errorCorrectionLevel:'H'}).modules.size,scale);
+}
 export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const custom=activeCustomForm(s);
   const qr=QRCode.create(url,{errorCorrectionLevel:'H'});
@@ -182,8 +191,8 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     const textY=style.kind==='block'?(style.position==='top'?(band+stroke+8)/2:codeHeight+(band-stroke-8)/2)+fontSize*.35:roundedLabel?labelY+labelHeight/2:labelY+30;
     frame+=`<text x="${width/2}" y="${textY}"${roundedLabel?' dominant-baseline="central"':''} fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
-  const logoSize=n*m*Math.max(10,Math.min(50,s.logoScale??18))/100,center=pad+size/2;
-  const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
+  const logoSize=logoGrid(n,s.logoScale??18).modules*m,center=pad+size/2;
+  const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-m}" y="${center+top-logoSize/2-m}" width="${logoSize+2*m}" height="${logoSize+2*m}" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/>${frameBackground}<g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
 const framePreviewCache=new Map<Frame,string>();

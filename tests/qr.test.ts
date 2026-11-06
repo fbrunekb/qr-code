@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,frameOptions,framePreview,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
+import {defaults,logoSizing,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,frameOptions,framePreview,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -172,7 +172,8 @@ test('large logos render at the requested size rather than the old 25 percent ca
  for(const logoScale of [30,40,50]){
   const svg=renderSvg(url,{...defaults,logo:'data:image/png;base64,test',logoScale});
   const width=Number(svg.match(/<image [^>]*width="([^"]+)"/)![1]);
-  assert.equal(width,n*12*logoScale/100);
+  assert.equal(width,logoSizing(url,logoScale).modules*12);
+  assert.ok(width>n*12*.25);
  }
 });
 
@@ -206,5 +207,22 @@ test('all nine frame examples show a simple grid and distinct frame designs',()=
  for(const svg of examples){
   assert.ok(svg.includes('data-example-grid="true"'));
   assert.ok(!svg.includes('data-eye='));
+ }
+});
+
+test('logo and its white padding align to complete modules at every slider size',()=>{
+ for(const url of ['https://example.com/','https://example.com/'+ 'long-path/'.repeat(12)]){
+  const n=QRCode.create(url,{errorCorrectionLevel:'H'}).modules.size;
+  for(let scale=10;scale<=50;scale++){
+   const svg=renderSvg(url,{...defaults,logo:'data:image/png;base64,test',logoScale:scale});
+   const logo=svg.match(/<g mask="url\(#logo-mask\)"><rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/)!;
+   const origin=58;
+   assert.equal((Number(logo[1])-origin)%12,0);
+   assert.equal((Number(logo[2])-origin)%12,0);
+   assert.equal(Number(logo[3])%12,0);
+   assert.equal(Number(logo[4])%12,0);
+   assert.equal(logoSizing(url,scale).modules%2,1);
+   assert.equal(logoSizing(url,scale).total,n);
+  }
  }
 });
