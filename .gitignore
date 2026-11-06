@@ -1,3 +1,4 @@
 node_modules/
 dist/
 *.tsbuildinfo
+charts/qr-studio/values-live.yaml
