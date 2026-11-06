@@ -126,8 +126,8 @@ export function shapePreview(shape:Shape):string {
 }
 function logoGrid(n:number,scale:number) {
   // Odd QR matrices need an odd logo width to keep both centered edges on the grid.
-  const min=2*Math.ceil((n*.1-1)/2)+1,max=2*Math.floor((n*.5-1)/2)+1;
-  const modules=Math.max(min,Math.min(max,2*Math.round((n*Math.max(10,Math.min(50,scale))/100-1)/2)+1));
+  const min=3,max=2*Math.floor((n*.5-1)/2)+1;
+  const modules=Math.max(min,Math.min(max,2*Math.round((n*Math.max(0,Math.min(50,scale))/100-1)/2)+1));
   return {min,max,modules,total:n};
 }
 export function logoSizing(url:string,scale:number) {
@@ -145,6 +145,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const width=size+pad*2,codeHeight=width,height=codeHeight+band;
   const cells:string[]=[];
   const protectedCells:string[]=[];
+  const logoModules=logoGrid(n,s.logoScale??18).modules,logoStart=(n-logoModules)/2;
   const reserved=(qr.modules as unknown as {reservedBit:Uint8Array}).reservedBit;
   const roundedEyes=['rounded','round','blur'].includes(s.shape);
   const eyes:{x:number;y:number;size:number}[]=[{x:0,y:0,size:7},{x:n-7,y:0,size:7},{x:0,y:n-7,size:7}];
@@ -163,6 +164,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   for(let y=0;y<n;y++)for(let x=0;x<n;x++) {
     if(reserved[y*n+x])protectedCells.push(`<rect x="${(x+4)*m+pad+10}" y="${(y+4)*m+pad+top+10}" width="12" height="12" fill="black"/>`);
     if(!qr.modules.get(y,x))continue;
+    if(s.logo&&!reserved[y*n+x]&&x>=logoStart&&x<logoStart+logoModules&&y>=logoStart&&y<logoStart+logoModules)continue;
     const px=(x+4)*m+pad+10,py=(y+4)*m+pad+top+10;
     if(eyes.some(eye=>x>=eye.x&&x<eye.x+eye.size&&y>=eye.y&&y<eye.y+eye.size))continue;
     if(s.shape==='custom'&&custom)cells.push(`<use href="#custom" xlink:href="#custom" x="${px}" y="${py}" width="12" height="12"/>`);
@@ -191,8 +193,8 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     const textY=style.kind==='block'?(style.position==='top'?(band+stroke+8)/2:codeHeight+(band-stroke-8)/2)+fontSize*.35:roundedLabel?labelY+labelHeight/2:labelY+30;
     frame+=`<text x="${width/2}" y="${textY}"${roundedLabel?' dominant-baseline="central"':''} fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
-  const logoSize=logoGrid(n,s.logoScale??18).modules*m,center=pad+size/2;
-  const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-m}" y="${center+top-logoSize/2-m}" width="${logoSize+2*m}" height="${logoSize+2*m}" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
+  const logoSize=logoModules*m,center=pad+size/2;
+  const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/>${frameBackground}<g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
 const framePreviewCache=new Map<Frame,string>();

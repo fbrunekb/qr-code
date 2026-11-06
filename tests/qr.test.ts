@@ -210,7 +210,7 @@ test('all nine frame examples show a simple grid and distinct frame designs',()=
  }
 });
 
-test('logo and its white padding align to complete modules at every slider size',()=>{
+test('logo clearing area matches the displayed module count at every slider size',()=>{
  for(const url of ['https://example.com/','https://example.com/'+ 'long-path/'.repeat(12)]){
   const n=QRCode.create(url,{errorCorrectionLevel:'H'}).modules.size;
   for(let scale=10;scale<=50;scale++){
@@ -219,10 +219,26 @@ test('logo and its white padding align to complete modules at every slider size'
    const origin=58;
    assert.equal((Number(logo[1])-origin)%12,0);
    assert.equal((Number(logo[2])-origin)%12,0);
+   assert.equal(Number(logo[3]),logoSizing(url,scale).modules*12);
    assert.equal(Number(logo[3])%12,0);
    assert.equal(Number(logo[4])%12,0);
    assert.equal(logoSizing(url,scale).modules%2,1);
    assert.equal(logoSizing(url,scale).total,n);
   }
+ }
+});
+
+test('logo clearing starts at three points without an additional hidden border',async()=>{
+ const url='https://example.com/';
+ const transparent='data:image/png;base64,'+(await sharp({create:{width:24,height:24,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).png().toBuffer()).toString('base64');
+ assert.equal(logoSizing(url,0).modules,3);
+ assert.equal(logoSizing(url,0).min,3);
+ const svg=renderSvg(url,{...defaults,logo:transparent,logoScale:0,background:'#e9dfe8'});
+ const area=svg.match(/<g mask="url\(#logo-mask\)"><rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/)!;
+ assert.equal(Number(area[3]),36);assert.equal(Number(area[4]),36);
+ const {data,info}=await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ for(let y=Number(area[2]);y<Number(area[2])+36;y++)for(let x=Number(area[1]);x<Number(area[1])+36;x++){
+  const offset=(y*info.width+x)*4;
+  assert.deepEqual([...data.subarray(offset,offset+4)],[233,223,232,255]);
  }
 });
