@@ -11,9 +11,9 @@ export default function ScanStatus({status,settings}:Props){
  if(status==='checking')return <p className="scan-status checking">Scanprüfung läuft …</p>;
  const success=status==='ok';
  return <div className={`scan-feedback ${success?'':'scan-failed'}`} onPointerEnter={e=>{if(e.pointerType==='mouse')setOpen(true);}} onPointerLeave={e=>{if(e.pointerType==='mouse')setOpen(false);}}>
-  <button type="button" className="scan-status scan-toggle" aria-expanded={open} aria-controls={id} onClick={()=>setOpen(value=>!value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);}}>
+  <button type="button" className="scan-status scan-toggle" aria-expanded={open} aria-controls={id} aria-describedby={open?id:undefined} onClick={()=>setOpen(value=>!value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);}}>
    {success?<Check size={15}/>:<CircleAlert size={15}/>}{success?'Scanprüfung erfolgreich':'Scanprüfung fehlgeschlagen'}<Info size={13} className="scan-info-icon"/>
   </button>
-  {open&&<p id={id} className="scan-explanation">{scanFeedback(success,settings)}</p>}
+  {open&&<p id={id} role="tooltip" className="scan-explanation">{scanFeedback(success,settings)}</p>}
  </div>;
 }
