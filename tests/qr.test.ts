@@ -17,7 +17,7 @@ async function decode(url:string,patch:Partial<Settings>={}){
  const {data,info}=await sharp(Buffer.from(svg)).resize({width:1000}).ensureAlpha().raw().toBuffer({resolveWithObject:true});
  return jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data;
 }
-for(const {id:shape} of builtinShapes)for(const frame of ['none','bottom','top','pill','script'] as const)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
+for(const {id:shape} of builtinShapes)for(const frame of ['none','bottom','top','pill','script','double'] as const)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
  const url='https://meine-website.de/';assert.equal(await decode(url,{shape,frame}),url);
 });
 test('custom modules and logo preserve encoded URL',async()=>{
@@ -154,3 +154,17 @@ test('deleting custom forms preserves other entries, selection and inversion',()
  assert.equal(start.customForms.length,3);
 });
 import './clipboard.test';
+
+for(const logoScale of [10,18,25])test(`logo size ${logoScale}% remains scannable in an exported QR`,async()=>{
+ const logo='data:image/png;base64,'+(await sharp({create:{width:48,height:48,channels:4,background:'#269954'}}).png().toBuffer()).toString('base64');
+ const url='https://example.com/logo-size';
+ assert.equal(await decode(url,{logo,logoScale}),url);
+});
+test('logo size is capped at 25 percent and double frame preserves additional space',()=>{
+ const url='https://example.com/',logo='data:image/png;base64,test';
+ const max=renderSvg(url,{...defaults,logo,logoScale:25});
+ assert.equal(renderSvg(url,{...defaults,logo,logoScale:100}),max);
+ assert.equal(renderSvg(url,{...defaults,logo,logoScale:0}),renderSvg(url,{...defaults,logo,logoScale:10}));
+ const double=renderSvg(url,{...defaults,frame:'double',frameWidth:32});
+ assert.ok(double.includes('data-inner-frame="true"'));
+});

@@ -1,9 +1,9 @@
 import QRCode from 'qrcode';
 export type Shape = 'square' | 'rounded' | 'round' | 'diamond' | 'heart' | 'blur' | 'custom';
-export type Frame = 'none' | 'bottom' | 'top' | 'pill' | 'script';
+export type Frame = 'none' | 'bottom' | 'top' | 'pill' | 'script' | 'double';
 export type CustomForm = {id:string; name:string; path:string; inverted:boolean};
-export type Settings = {shape:Shape; foreground:string; background:string; customForms:CustomForm[]; customId:string|null; logo:string; frame:Frame; frameWidth:number; label:string; labelTouched:boolean};
-export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',frame:'none',frameWidth:16,label:'',labelTouched:false};
+export type Settings = {shape:Shape; foreground:string; background:string; customForms:CustomForm[]; customId:string|null; logo:string; logoScale:number; frame:Frame; frameWidth:number; label:string; labelTouched:boolean};
+export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',logoScale:18,frame:'none',frameWidth:16,label:'',labelTouched:false};
 export function activeCustomForm(s:Settings):CustomForm|undefined {
   return s.shape==='custom'?s.customForms.find(form=>form.id===s.customId):undefined;
 }
@@ -95,9 +95,9 @@ export async function readCustomImage(file:File):Promise<string>{
 export const builtinShapes = [
   {id:'square',label:'Standard'},{id:'rounded',label:'Abgerundet'},
   {id:'round',label:'Rund'},{id:'diamond',label:'Karo'},
-  {id:'heart',label:'Herzchen'},{id:'blur',label:'Blurry-rund'},
+  {id:'heart',label:'Herzchen'},{id:'blur',label:'Blurry-Rund'},
 ] as const;
-const blurFilter='<filter id="soft-dot" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.4"/></filter>';
+const blurFilter='<filter id="soft-dot" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.9"/></filter>';
 export function moduleSvg(shape:Shape,x:number,y:number):string {
   const at=`transform="translate(${x} ${y})"`;
   switch(shape){
@@ -117,7 +117,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const custom=activeCustomForm(s);
   const qr=QRCode.create(url,{errorCorrectionLevel:'H'});
   const n=qr.modules.size, m=12, size=(n+8)*m+20;
-  const framed=s.frame!=='none', stroke=Math.max(2,Math.min(32,s.frameWidth)), pad=framed?stroke+12:0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
+  const framed=s.frame!=='none', stroke=Math.max(2,Math.min(32,s.frameWidth)), pad=framed?(s.frame==='double'?stroke*2+22:stroke+12):0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
   const width=size+pad*2,height=size+pad*2+top+bottom;
   const cells:string[]=[];
   const protectedCells:string[]=[];
@@ -149,6 +149,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   if(framed){
     const inset=stroke/2+4, radius=s.frame==='pill'?28:14;
     frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${size+2*pad-2*inset}" rx="${radius}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
+    if(s.frame==='double')frame+=`<rect data-inner-frame="true" x="${inset+stroke+6}" y="${top+inset+stroke+6}" width="${width-2*(inset+stroke+6)}" height="${size+2*pad-2*(inset+stroke+6)}" rx="8" fill="none" stroke="${s.foreground}" stroke-width="${Math.max(2,stroke/3)}"/>`;
     const labelY=s.frame==='top'?8:height-56, textY=labelY+30;
     const script=s.frame==='script',fontSize=script?28:24;
     // Truncate the display only; the input and QR destination retain the complete URL.
@@ -157,7 +158,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     if(!script)frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${s.frame==='pill'?24:10}" fill="${s.foreground}"/>`;
     frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
-  const logoSize=Math.floor(n*.18)*m,center=pad+size/2;
+  const logoSize=n*m*Math.max(10,Math.min(25,s.logoScale??18))/100,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
