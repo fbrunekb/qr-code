@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -77,7 +77,6 @@ test('export background pixels exactly match the selected color',async()=>{
  const {data}=await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({resolveWithObject:true});
  assert.deepEqual([...data.subarray(0,4)],[233,223,232,255]);
 });
-import './clipboard.test';
 
 test('frame label spans the complete outside width of the frame',()=>{
  for(const frame of ['bottom','top','pill'] as const)for(const frameWidth of [2,16,32]){
@@ -137,4 +136,20 @@ test('frame labels truncate without changing the original input or shortening sh
  const svg=renderSvg('https://example.com/',settings);
  assert.equal(settings.label,original);
  assert.ok(/<text[^>]*>[^<]*\.\.\.<\/text>/.test(svg));
+});
+
+test('deleting custom forms preserves other entries, selection and inversion',()=>{
+ const forms=[{id:'a',name:'a.svg',path:'M0 0Z',inverted:false},{id:'b',name:'b.svg',path:'M0 0h48v48H0Z',inverted:true},{id:'c',name:'c.svg',path:'M0 0Z',inverted:false}];
+ const start=selectCustomForm(addCustomForms(defaults,forms),'b');
+ const unselectedRemoved=removeCustomForm(start,'a');
+ assert.equal(activeCustomForm(unselectedRemoved)?.id,'b');
+ assert.equal(activeCustomForm(unselectedRemoved)?.inverted,true);
+ const selectedRemoved=removeCustomForm(start,'b');
+ assert.equal(activeCustomForm(selectedRemoved)?.id,'c');
+ assert.deepEqual(selectedRemoved.customForms.map(form=>form.id),['a','c']);
+ const last=removeCustomForm(removeCustomForm(selectedRemoved,'a'),'c');
+ assert.equal(last.shape,'square');assert.equal(last.customId,null);assert.equal(last.customForms.length,0);
+ assert.equal(removeCustomForm(start,'missing'),start);
+ assert.equal(removeCustomForm({...start,shape:'heart'},'b').shape,'heart');
+ assert.equal(start.customForms.length,3);
 });

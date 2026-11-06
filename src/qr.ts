@@ -14,6 +14,13 @@ export function addCustomForms(s:Settings,forms:CustomForm[]):Settings {
 export function selectCustomForm(s:Settings,id:string):Settings {
   return s.customForms.some(form=>form.id===id)?{...s,shape:'custom',customId:id}:s;
 }
+export function removeCustomForm(s:Settings,id:string):Settings {
+  const index=s.customForms.findIndex(form=>form.id===id);
+  if(index<0)return s;
+  const customForms=s.customForms.filter(form=>form.id!==id);
+  const customId=s.customId===id?(customForms[Math.min(index,customForms.length-1)]?.id??null):s.customId;
+  return {...s,customForms,customId,shape:s.shape==='custom'&&!customId?'square':s.shape};
+}
 export function invertCustomForm(s:Settings,inverted:boolean):Settings {
   if(!activeCustomForm(s))return s;
   return {...s,customForms:s.customForms.map(form=>form.id===s.customId?{...form,inverted}:form)};
