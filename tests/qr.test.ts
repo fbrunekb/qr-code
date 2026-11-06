@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,frameOptions,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,frameOptions,framePreview,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -177,7 +177,7 @@ test('large logos render at the requested size rather than the old 25 percent ca
 });
 
 test('nine frames follow the requested three-by-three order',()=>{
- assert.deepEqual(frameOptions.map(frame=>frame.id),['none','bottom','script','pill-top','block-top','bubble-top','pill','block-bottom','bubble-bottom']);
+ assert.deepEqual(frameOptions.map(frame=>frame.id),['none','bottom','script','block-top','pill-top','bubble-top','block-bottom','pill','bubble-bottom']);
 });
 test('classic and handwriting have no QR outline; block and bubble silhouettes match their positions',()=>{
  const url='https://example.com/';
@@ -190,4 +190,18 @@ test('classic and handwriting have no QR outline; block and bubble silhouettes m
   assert.ok(!block.includes('data-frame-label'));
   assert.ok(renderSvg(url,{...defaults,frame:`bubble-${position}`}).includes(`data-bubble-tail="${position}"`));
  }
+});
+
+test('speech bubbles use the same outline and label radius as round frames',()=>{
+ for(const [round,bubble] of [['pill-top','bubble-top'],['pill','bubble-bottom']] as const){
+  const rounded=renderSvg('https://example.com/',{...defaults,frame:round});
+  const speech=renderSvg('https://example.com/',{...defaults,frame:bubble});
+  const radii=(svg:string)=>[svg.match(/rx="(\d+)" fill="none" stroke=/)![1],svg.match(/data-frame-label="true"[^>]*rx="(\d+)"/)![1]];
+  assert.deepEqual(radii(speech),radii(rounded));
+ }
+});
+test('frame examples use a simpler QR matrix than the full URL preview',()=>{
+ const example=decodeURIComponent(framePreview('none').split(',')[1]);
+ const full=renderSvg('https://qr.studio',defaults);
+ assert.ok((example.match(/shape-rendering="crispEdges"/g)??[]).length<(full.match(/shape-rendering="crispEdges"/g)??[]).length);
 });

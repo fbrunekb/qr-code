@@ -5,11 +5,11 @@ export const frameOptions = [
   {id:'none',label:'Ohne',kind:'none',position:'bottom'},
   {id:'bottom',label:'Klassisch',kind:'label',position:'bottom'},
   {id:'script',label:'Handschrift',kind:'script',position:'bottom'},
-  {id:'pill-top',label:'Rund oben',kind:'round',position:'top'},
   {id:'block-top',label:'Block oben',kind:'block',position:'top'},
+  {id:'pill-top',label:'Rund oben',kind:'round',position:'top'},
   {id:'bubble-top',label:'Sprechblase oben',kind:'bubble',position:'top'},
-  {id:'pill',label:'Rund unten',kind:'round',position:'bottom'},
   {id:'block-bottom',label:'Block unten',kind:'block',position:'bottom'},
+  {id:'pill',label:'Rund unten',kind:'round',position:'bottom'},
   {id:'bubble-bottom',label:'Sprechblase unten',kind:'bubble',position:'bottom'},
 ] as const;
 export type CustomForm = {id:string; name:string; path:string; inverted:boolean};
@@ -165,14 +165,14 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     if(style.kind==='block'){
       frameBackground=`<g data-block-frame="${style.position}"><rect x="4" y="4" width="${width-8}" height="${height-8}" rx="14" fill="${s.foreground}"/><rect x="${4+stroke}" y="${top+4+stroke}" width="${width-8-2*stroke}" height="${codeHeight-8-2*stroke}" rx="8" fill="${s.background}"/></g>`;
     }else if(outlined){
-      frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${codeHeight-2*inset}" rx="${style.kind==='round'?28:14}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
+      frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${codeHeight-2*inset}" rx="${['round','bubble'].includes(style.kind)?28:14}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
     }
     const labelY=style.position==='top'?8:codeHeight+(style.kind==='bubble'?32:8);
     const script=style.kind==='script',fontSize=script?28:24;
     const textWidth=width-40;
     const label=esc(truncateFrameLabel(fullLabel,textWidth,text=>measureFrameText(text,fontSize,script)));
     if(style.kind!=='block'&&!script){
-      frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${style.kind==='round'?24:10}" fill="${s.foreground}"/>`;
+      frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${['round','bubble'].includes(style.kind)?24:10}" fill="${s.foreground}"/>`;
     }
     if(style.kind==='bubble'){
       const half=width*.11,base=style.position==='top'?labelY+47:labelY+1,tip=style.position==='top'?base+24:base-24;
@@ -189,7 +189,7 @@ const framePreviewCache=new Map<Frame,string>();
 export function framePreview(frame:Frame):string {
   let preview=framePreviewCache.get(frame);
   if(!preview){
-    preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(renderSvg('https://qr.studio',{...defaults,foreground:'#123d3c',frame,label:'SCAN ME',labelTouched:true}));
+    preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(renderSvg('1',{...defaults,foreground:'#123d3c',frame,label:'SCAN ME',labelTouched:true}));
     framePreviewCache.set(frame,preview);
   }
   return preview;
