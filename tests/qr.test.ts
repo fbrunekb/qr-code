@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -17,7 +17,7 @@ async function decode(url:string,patch:Partial<Settings>={}){
  const {data,info}=await sharp(Buffer.from(svg)).resize({width:1000}).ensureAlpha().raw().toBuffer({resolveWithObject:true});
  return jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data;
 }
-for(const shape of ['square','round'] as const)for(const frame of ['none','bottom','top','pill','script'] as const)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
+for(const {id:shape} of builtinShapes)for(const frame of ['none','bottom','top','pill','script'] as const)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
  const url='https://meine-website.de/';assert.equal(await decode(url,{shape,frame}),url);
 });
 test('custom modules and logo preserve encoded URL',async()=>{
@@ -28,7 +28,7 @@ test('custom modules and logo preserve encoded URL',async()=>{
 test('all reserved modules remain square for custom and round shapes',()=>{
  const url='https://example.com/'+ 'long-path/'.repeat(25),qr=QRCode.create(url,{errorCorrectionLevel:'H'}),svg=renderSvg(url,{...defaults,shape:'round'});
  const reserved=(qr.modules as unknown as {reservedBit:Uint8Array}).reservedBit;
- for(let y=0;y<qr.modules.size;y++)for(let x=0;x<qr.modules.size;x++)if(reserved[y*qr.modules.size+x]&&qr.modules.get(y,x))assert.ok(svg.includes(`<rect shape-rendering="crispEdges" x="${(x+4)*12}" y="${(y+4)*12}" width="12" height="12"/>`));
+ for(let y=0;y<qr.modules.size;y++)for(let x=0;x<qr.modules.size;x++)if(reserved[y*qr.modules.size+x]&&qr.modules.get(y,x))assert.ok(svg.includes(`<rect shape-rendering="crispEdges" x="${(x+4)*12+10}" y="${(y+4)*12+10}" width="12" height="12"/>`));
 });
 
 test('frame label follows the entered URL until manually edited, including clearing it',()=>{
@@ -75,3 +75,17 @@ test('export background pixels exactly match the selected color',async()=>{
  assert.deepEqual([...data.subarray(0,4)],[233,223,232,255]);
 });
 import './clipboard.test';
+
+test('frame label spans the complete outside width of the frame',()=>{
+ for(const frame of ['bottom','top','pill'] as const)for(const frameWidth of [2,8,24]){
+  const svg=renderSvg('https://example.com/',{...defaults,frame,frameWidth});
+  const width=Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
+  assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-56}" width="${width-8}"`));
+ }
+});
+test('QR quiet zone includes an additional ten pixels on every side',()=>{
+ const url='https://example.com/',qr=QRCode.create(url,{errorCorrectionLevel:'H'});
+ const svg=renderSvg(url,defaults);
+ assert.ok(svg.includes(`width="${(qr.modules.size+8)*12+20}"`));
+ assert.ok(svg.includes('<rect shape-rendering="crispEdges" x="58" y="58" width="12" height="12"/>'));
+});
