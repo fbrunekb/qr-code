@@ -160,11 +160,20 @@ for(const logoScale of [10,18,25])test(`logo size ${logoScale}% remains scannabl
  const url='https://example.com/logo-size';
  assert.equal(await decode(url,{logo,logoScale}),url);
 });
-test('logo size is capped at 25 percent and double frame preserves additional space',()=>{
+test('logo size is capped at 50 percent and double frame preserves additional space',()=>{
  const url='https://example.com/',logo='data:image/png;base64,test';
- const max=renderSvg(url,{...defaults,logo,logoScale:25});
+ const max=renderSvg(url,{...defaults,logo,logoScale:50});
  assert.equal(renderSvg(url,{...defaults,logo,logoScale:100}),max);
  assert.equal(renderSvg(url,{...defaults,logo,logoScale:0}),renderSvg(url,{...defaults,logo,logoScale:10}));
  const double=renderSvg(url,{...defaults,frame:'double',frameWidth:32});
  assert.ok(double.includes('data-inner-frame="true"'));
+});
+
+test('large logos render at the requested size rather than the old 25 percent cap',()=>{
+ const url='https://example.com/',n=QRCode.create(url,{errorCorrectionLevel:'H'}).modules.size;
+ for(const logoScale of [30,40,50]){
+  const svg=renderSvg(url,{...defaults,logo:'data:image/png;base64,test',logoScale});
+  const width=Number(svg.match(/<image [^>]*width="([^"]+)"/)![1]);
+  assert.equal(width,n*12*logoScale/100);
+ }
 });

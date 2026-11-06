@@ -158,7 +158,7 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     if(!script)frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${s.frame==='pill'?24:10}" fill="${s.foreground}"/>`;
     frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
-  const logoSize=n*m*Math.max(10,Math.min(25,s.logoScale??18))/100,center=pad+size/2;
+  const logoSize=n*m*Math.max(10,Math.min(50,s.logoScale??18))/100,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
 }
