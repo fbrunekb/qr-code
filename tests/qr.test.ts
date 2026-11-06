@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
+import {defaults,normalizeUrl,renderSvg,contrast,frameLabel,monochromePath,customPath,builtinShapes,frameOptions,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,truncateFrameLabel,type Settings} from '../src/qr';
 
 test('URLs normalize without redirects and reject invalid or unsafe input',()=>{
  assert.equal(normalizeUrl(' meine-website.de/path?q=test '),'https://meine-website.de/path?q=test');
@@ -17,7 +17,7 @@ async function decode(url:string,patch:Partial<Settings>={}){
  const {data,info}=await sharp(Buffer.from(svg)).resize({width:1000}).ensureAlpha().raw().toBuffer({resolveWithObject:true});
  return jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data;
 }
-for(const {id:shape} of builtinShapes)for(const frame of ['none','bottom','top','pill','script','double'] as const)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
+for(const {id:shape} of builtinShapes)for(const {id:frame} of frameOptions)test(`decode exported ${shape} QR with ${frame} frame`,async()=>{
  const url='https://meine-website.de/';assert.equal(await decode(url,{shape,frame}),url);
 });
 test('custom modules and logo preserve encoded URL',async()=>{
@@ -79,10 +79,10 @@ test('export background pixels exactly match the selected color',async()=>{
 });
 
 test('frame label spans the complete outside width of the frame',()=>{
- for(const frame of ['bottom','top','pill'] as const)for(const frameWidth of [2,16,32]){
+ for(const frame of ['bottom','pill-top','pill'] as const)for(const frameWidth of [2,16,32]){
   const svg=renderSvg('https://example.com/',{...defaults,frame,frameWidth});
   const width=Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
-  assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-56}" width="${width-8}"`));
+  assert.ok(svg.includes(`<rect data-frame-label="true" x="4" y="${frame==='pill-top'?8:Number(svg.match(/<svg[^>]* height="(\d+)"/)![1])-56}" width="${width-8}"`));
  }
 });
 test('QR quiet zone includes an additional ten pixels on every side',()=>{
@@ -160,13 +160,11 @@ for(const logoScale of [10,18,25])test(`logo size ${logoScale}% remains scannabl
  const url='https://example.com/logo-size';
  assert.equal(await decode(url,{logo,logoScale}),url);
 });
-test('logo size is capped at 50 percent and double frame preserves additional space',()=>{
+test('logo size is capped at 50 percent',()=>{
  const url='https://example.com/',logo='data:image/png;base64,test';
  const max=renderSvg(url,{...defaults,logo,logoScale:50});
  assert.equal(renderSvg(url,{...defaults,logo,logoScale:100}),max);
  assert.equal(renderSvg(url,{...defaults,logo,logoScale:0}),renderSvg(url,{...defaults,logo,logoScale:10}));
- const double=renderSvg(url,{...defaults,frame:'double',frameWidth:32});
- assert.ok(double.includes('data-inner-frame="true"'));
 });
 
 test('large logos render at the requested size rather than the old 25 percent cap',()=>{
@@ -175,5 +173,21 @@ test('large logos render at the requested size rather than the old 25 percent ca
   const svg=renderSvg(url,{...defaults,logo:'data:image/png;base64,test',logoScale});
   const width=Number(svg.match(/<image [^>]*width="([^"]+)"/)![1]);
   assert.equal(width,n*12*logoScale/100);
+ }
+});
+
+test('nine frames follow the requested three-by-three order',()=>{
+ assert.deepEqual(frameOptions.map(frame=>frame.id),['none','bottom','script','pill-top','block-top','bubble-top','pill','block-bottom','bubble-bottom']);
+});
+test('classic and handwriting have no QR outline; block and bubble silhouettes match their positions',()=>{
+ const url='https://example.com/';
+ for(const frame of ['bottom','script'] as const){
+  const svg=renderSvg(url,{...defaults,frame});assert.ok(!svg.includes('stroke-width='));
+ }
+ for(const position of ['top','bottom'] as const){
+  const block=renderSvg(url,{...defaults,frame:`block-${position}`});
+  assert.ok(block.includes(`data-block-frame="${position}"`));
+  assert.ok(!block.includes('data-frame-label'));
+  assert.ok(renderSvg(url,{...defaults,frame:`bubble-${position}`}).includes(`data-bubble-tail="${position}"`));
  }
 });

@@ -1,6 +1,17 @@
 import QRCode from 'qrcode';
 export type Shape = 'square' | 'rounded' | 'round' | 'diamond' | 'heart' | 'blur' | 'custom';
-export type Frame = 'none' | 'bottom' | 'top' | 'pill' | 'script' | 'double';
+export type Frame = 'none' | 'bottom' | 'script' | 'pill-top' | 'block-top' | 'bubble-top' | 'pill' | 'block-bottom' | 'bubble-bottom';
+export const frameOptions = [
+  {id:'none',label:'Ohne',kind:'none',position:'bottom'},
+  {id:'bottom',label:'Klassisch',kind:'label',position:'bottom'},
+  {id:'script',label:'Handschrift',kind:'script',position:'bottom'},
+  {id:'pill-top',label:'Rund oben',kind:'round',position:'top'},
+  {id:'block-top',label:'Block oben',kind:'block',position:'top'},
+  {id:'bubble-top',label:'Sprechblase oben',kind:'bubble',position:'top'},
+  {id:'pill',label:'Rund unten',kind:'round',position:'bottom'},
+  {id:'block-bottom',label:'Block unten',kind:'block',position:'bottom'},
+  {id:'bubble-bottom',label:'Sprechblase unten',kind:'bubble',position:'bottom'},
+] as const;
 export type CustomForm = {id:string; name:string; path:string; inverted:boolean};
 export type Settings = {shape:Shape; foreground:string; background:string; customForms:CustomForm[]; customId:string|null; logo:string; logoScale:number; frame:Frame; frameWidth:number; label:string; labelTouched:boolean};
 export const defaults: Settings = {shape:'square',foreground:'#123d3c',background:'#ffffff',customForms:[],customId:null,logo:'',logoScale:18,frame:'none',frameWidth:16,label:'',labelTouched:false};
@@ -117,8 +128,11 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
   const custom=activeCustomForm(s);
   const qr=QRCode.create(url,{errorCorrectionLevel:'H'});
   const n=qr.modules.size, m=12, size=(n+8)*m+20;
-  const framed=s.frame!=='none', stroke=Math.max(2,Math.min(32,s.frameWidth)), pad=framed?(s.frame==='double'?stroke*2+22:stroke+12):0, top=s.frame==='top'?64:0, bottom=framed&&s.frame!=='top'?64:0;
-  const width=size+pad*2,height=size+pad*2+top+bottom;
+  const style=frameOptions.find(frame=>frame.id===s.frame)??frameOptions[0];
+  const framed=style.kind!=='none',outlined=['round','block','bubble'].includes(style.kind);
+  const stroke=Math.max(2,Math.min(32,s.frameWidth)),pad=outlined?stroke+12:0;
+  const band=framed?(style.kind==='bubble'?88:64):0,top=style.position==='top'?band:0;
+  const width=size+pad*2,codeHeight=width,height=codeHeight+band;
   const cells:string[]=[];
   const protectedCells:string[]=[];
   const reserved=(qr.modules as unknown as {reservedBit:Uint8Array}).reservedBit;
@@ -145,22 +159,40 @@ export function renderSvg(url:string,s:Settings,defaultLabel=url):string {
     else cells.push(moduleSvg(s.shape,px,py));
   }
   const fullLabel=frameLabel(defaultLabel,s);
-  let frame='';
+  let frame='',frameBackground='';
   if(framed){
-    const inset=stroke/2+4, radius=s.frame==='pill'?28:14;
-    frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${size+2*pad-2*inset}" rx="${radius}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
-    if(s.frame==='double')frame+=`<rect data-inner-frame="true" x="${inset+stroke+6}" y="${top+inset+stroke+6}" width="${width-2*(inset+stroke+6)}" height="${size+2*pad-2*(inset+stroke+6)}" rx="8" fill="none" stroke="${s.foreground}" stroke-width="${Math.max(2,stroke/3)}"/>`;
-    const labelY=s.frame==='top'?8:height-56, textY=labelY+30;
-    const script=s.frame==='script',fontSize=script?28:24;
-    // Truncate the display only; the input and QR destination retain the complete URL.
-    const textWidth=width-8-32;
+    const inset=stroke/2+4;
+    if(style.kind==='block'){
+      frameBackground=`<g data-block-frame="${style.position}"><rect x="4" y="4" width="${width-8}" height="${height-8}" rx="14" fill="${s.foreground}"/><rect x="${4+stroke}" y="${top+4+stroke}" width="${width-8-2*stroke}" height="${codeHeight-8-2*stroke}" rx="8" fill="${s.background}"/></g>`;
+    }else if(outlined){
+      frame=`<rect x="${inset}" y="${top+inset}" width="${width-2*inset}" height="${codeHeight-2*inset}" rx="${style.kind==='round'?28:14}" fill="none" stroke="${s.foreground}" stroke-width="${stroke}" stroke-linejoin="round"/>`;
+    }
+    const labelY=style.position==='top'?8:codeHeight+(style.kind==='bubble'?32:8);
+    const script=style.kind==='script',fontSize=script?28:24;
+    const textWidth=width-40;
     const label=esc(truncateFrameLabel(fullLabel,textWidth,text=>measureFrameText(text,fontSize,script)));
-    if(!script)frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${s.frame==='pill'?24:10}" fill="${s.foreground}"/>`;
+    if(style.kind!=='block'&&!script){
+      frame+=`<rect data-frame-label="true" x="4" y="${labelY}" width="${width-8}" height="48" rx="${style.kind==='round'?24:10}" fill="${s.foreground}"/>`;
+    }
+    if(style.kind==='bubble'){
+      const half=width*.11,base=style.position==='top'?labelY+47:labelY+1,tip=style.position==='top'?base+24:base-24;
+      frame+=`<path data-bubble-tail="${style.position}" d="M${width/2-half} ${base}L${width/2} ${tip}L${width/2+half} ${base}Z" fill="${s.foreground}"/>`;
+    }
+    const textY=style.kind==='block'?(style.position==='top'?(band+stroke+8)/2:codeHeight+(band-stroke-8)/2)+fontSize*.35:labelY+30;
     frame+=`<text x="${width/2}" y="${textY}" fill="${script?s.foreground:s.background}" text-anchor="middle" font-family="${script?'Georgia,serif':'Arial,sans-serif'}" font-style="${script?'italic':'normal'}" font-weight="${script?'400':'700'}" font-size="${fontSize}">${label}</text>`;
   }
   const logoSize=n*m*Math.max(10,Math.min(50,s.logoScale??18))/100,center=pad+size/2;
   const logo=s.logo?`<g mask="url(#logo-mask)"><rect x="${center-logoSize/2-6}" y="${center+top-logoSize/2-6}" width="${logoSize+12}" height="${logoSize+12}" rx="6" fill="${s.background}"/><image href="${s.logo}" x="${center-logoSize/2}" y="${center+top-logoSize/2}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/></g>`:'';
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/><g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${blurFilter}<mask id="logo-mask"><rect width="100%" height="100%" fill="white"/>${protectedCells.join('')}</mask>${custom?`<symbol id="custom" viewBox="0 0 48 48"><path d="${customPath(custom.path,custom.inverted)}" fill-rule="evenodd" shape-rendering="crispEdges"/></symbol>`:''}</defs><rect width="100%" height="100%" fill="${s.background}"/>${frameBackground}<g fill="${s.foreground}">${cells.join('')}</g>${logo}${frame}</svg>`;
+}
+const framePreviewCache=new Map<Frame,string>();
+export function framePreview(frame:Frame):string {
+  let preview=framePreviewCache.get(frame);
+  if(!preview){
+    preview='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(renderSvg('https://qr.studio',{...defaults,foreground:'#123d3c',frame,label:'SCAN ME',labelTouched:true}));
+    framePreviewCache.set(frame,preview);
+  }
+  return preview;
 }
 export async function svgToCanvas(svg:string,size=1200):Promise<HTMLCanvasElement> {
   const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);
