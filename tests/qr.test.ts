@@ -1,3 +1,4 @@
+import {scanFeedback} from '../src/scanFeedback';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
@@ -241,4 +242,16 @@ test('logo clearing starts at three points without an additional hidden border',
   const offset=(y*info.width+x)*4;
   assert.deepEqual([...data.subarray(offset,offset+4)],[233,223,232,255]);
  }
+});
+
+test('scan failure tips reflect contrast, point form and an uploaded logo',()=>{
+ const normal=scanFeedback(false,defaults);
+ assert.ok(!normal.includes('Logo'));assert.ok(!normal.includes('Punktform'));assert.ok(!normal.includes('Kontrast'));
+ const lowContrast=scanFeedback(false,{...defaults,foreground:'#dddddd'});
+ assert.ok(lowContrast.includes('Erhöhe den Kontrast.'));assert.ok(!lowContrast.includes('Logo'));
+ const custom=scanFeedback(false,{...defaults,shape:'custom'});
+ assert.ok(custom.includes('mittig ausgefüllte Punktform'));assert.ok(!custom.includes('Logo'));
+ const logo=scanFeedback(false,{...defaults,logo:'uploaded'});
+ assert.ok(logo.includes('Logo in der Mitte'));assert.ok(!logo.includes('Punktform'));
+ assert.equal(scanFeedback(true,defaults),'Der QR-Code müsste erfolgreich gelesen werden können. Starker Kontrast und mittig ausgefüllte Punktform verbessern die Lesbarkeit.');
 });

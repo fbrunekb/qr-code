@@ -3,6 +3,7 @@ import {ArrowDownToLine,Check,ChevronDown,Clipboard,Grid3X3,Image as ImageIcon,L
 import jsQR from 'jsqr';
 import {defaults,logoSizing,normalizeUrl,renderSvg,contrast,svgToCanvas,canvasBlob,readImage,readCustomImage,customPreview,frameLabel,builtinShapes,shapePreview,frameOptions,framePreview,activeCustomForm,addCustomForms,selectCustomForm,invertCustomForm,removeCustomForm,type CustomForm,type Settings} from './qr';
 import ColorPicker from './ColorPicker';
+import ScanStatus from './ScanStatus';
 import {copySvgText} from './clipboard';
 import '@fontsource-variable/manrope';
 import './style.css';
@@ -54,9 +55,8 @@ export default function App(){
    notify('PNG in die Zwischenablage kopiert');
   }else{const blob=format==='png'?await canvasBlob(await svgToCanvas(svg)):new Blob([svg],{type:'image/svg+xml'});const object=URL.createObjectURL(blob),a=document.createElement('a');a.href=object;a.download=`qr-studio.${format}`;a.click();setTimeout(()=>URL.revokeObjectURL(object),1000);notify(`${format.toUpperCase()} wird heruntergeladen`);}
  }catch(e){const known=e instanceof Error&&/^(Die Zwischenablage benötigt|Dein Browser unterstützt|Bild konnte)/.test(e.message);notify(known?e.message:copy?'Kopieren fehlgeschlagen. Bitte erlaube den Zugriff auf die Zwischenablage oder nutze Download.':'Download fehlgeschlagen. Bitte versuche es erneut.');}}
- const warning=scan==='fail'?'Scanprüfung fehlgeschlagen. Bitte teste den QR-Code mit deinem Smartphone. Ein guter QR-Punkt braucht eine dunkle Mitte, klare Konturen und hohen Kontrast.':'';
  const preview=<button className={`qr-preview ${!svg?'empty':''}`} disabled={!svg} onClick={()=>exportQr('png',true)} title="QR-Code als PNG kopieren" aria-label="QR-Code als PNG kopieren">{svg?<img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} alt="Dein gestalteter QR-Code"/>:<div className="placeholder"><ScanLine size={112} strokeWidth={1}/><span>Hier entsteht dein QR-Code</span></div>}</button>;
- const previewNotes=svg&&<div className="preview-notes" aria-live="polite">{scan==='ok'&&<p className="scan-status"><Check size={15}/>Scanprüfung erfolgreich</p>}{scan==='checking'&&<p className="scan-status checking">Scanprüfung läuft …</p>}{warning&&<p className="warning">{warning}</p>}</div>;
+ const previewNotes=svg&&<div className="preview-notes" aria-live="polite"><ScanStatus status={scan} settings={settings}/></div>;
  const panels=[{id:'shape',title:'Punktform',icon:Grid3X3},{id:'colors',title:'Farben',icon:Palette},{id:'logo',title:'Logo & Bild',icon:ImageIcon},{id:'frame',title:'Rahmen',icon:SquareDashed}];
  return <main className={`studio ${url&&svg?'has-code':''}`}>
  <div className="wave wave-one"/><div className="wave wave-two"/>
